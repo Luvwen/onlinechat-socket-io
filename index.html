@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+        <title>Socket.IO chat</title>
+        <style>
+            body {
+                margin: 0;
+                padding-bottom: 3rem;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Helvetica, Arial, sans-serif;
+            }
+
+            #form {
+                background: rgba(0, 0, 0, 0.15);
+                padding: 0.25rem;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                display: flex;
+                height: 3rem;
+                box-sizing: border-box;
+                backdrop-filter: blur(10px);
+            }
+            #input {
+                border: none;
+                padding: 0 1rem;
+                flex-grow: 1;
+                border-radius: 2rem;
+                margin: 0.25rem;
+            }
+            #input:focus {
+                outline: none;
+            }
+            #form > button {
+                background: #333;
+                border: none;
+                padding: 0 1rem;
+                margin: 0.25rem;
+                border-radius: 3px;
+                outline: none;
+                color: #fff;
+            }
+
+            #messages {
+                list-style-type: none;
+                margin: 0;
+                padding: 0;
+            }
+            #messages > li {
+                padding: 0.5rem 1rem;
+            }
+            #messages > li:nth-child(odd) {
+                background: #efefef;
+            }
+            #modal {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 50vw;
+                height: 50vh;
+                z-index: 12;
+                background-color: #000000;
+                opacity: 0.3;
+                border-radius: 12px;
+                color: white;
+            }
+            .modal-closed {
+                display: none;
+            }
+            .modal-open {
+                display: block;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+        </style>
+    </head>
+    <body>
+        <ul id="messages"></ul>
+        <div id="modal" class="modal-closed">
+            <h1 id="modal-title"></h1>
+        </div>
+        <form id="form" action="">
+            <input id="input" autocomplete="off" /><button>Send</button>
+        </form>
+
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            const socket = io({
+                auth: {
+                    serverOffset: 0,
+                },
+                ackTimeout: 10000,
+                retries: 3,
+            });
+
+            const form = document.getElementById('form');
+            const input = document.getElementById('input');
+            const messages = document.getElementById('messages');
+            let counter = 0;
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (input.value) {
+                    const clientOffset = `${socket.id}-${counter++}`;
+                    socket.emit('chat message', input.value, clientOffset);
+                    input.value = '';
+                }
+            });
+
+            socket.on('chat message', (msg, serverOffset) => {
+                const li = document.createElement('li');
+                li.textContent = msg;
+                messages.appendChild(li);
+                window.scrollTo(0, document.body.scrollHeight);
+                socket.auth.serverOffset = serverOffset;
+            });
+
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modal-title');
+
+            socket.on('login', (response) => {
+                const { message, loggedUserId, username } = response;
+                const currentClientId = socket.id;
+
+                if (loggedUserId !== currentClientId) {
+                    modalTitle.textContent = `El usuario ${username} se ha conectado al chat`;
+                    modal.classList.add('modal-open');
+                    setTimeout(() => {
+                        modal.classList.remove('modal-open');
+                    }, 3500);
+                }
+            });
+
+            socket.on('logout', (response) => {
+                const { message, loggedOutId, username } = response;
+                const currentClientId = socket.id;
+                console.log(response);
+                if (loggedOutId !== currentClientId) {
+                    modalTitle.textContent = `El usuario ${username} se ha desconectado del chat`;
+                    modal.classList.add('modal-open');
+                    setTimeout(() => {
+                        modal.classList.remove('modal-open');
+                    }, 3500);
+                }
+            });
+        </script>
+    </body>
+</html>
